@@ -139,6 +139,29 @@ foto de portada y ubicación de cada proveedor (editor del proveedor). Si una fo
 
 ---
 
+## 4-quater. Regreso al diseño anterior + logo + compatibilidad (26/oct)
+
+Se restauró el **diseño anterior** (encabezado de color con el logo al centro, buscador, mosaico de categorías y tarjetas de destacados),
+conservando todos los arreglos posteriores: sin destello azul (el naranja CANIRAC es el color por defecto y el tema se aplica antes de pintar),
+carga rápida (librerías guardadas en el teléfono, datos en paralelo, arranque instantáneo), botón **Actualizar** y jalar para actualizar.
+El diseño tipo maqueta quedó respaldado (no se publica).
+
+| Sev. | Hallazgo | Corrección |
+|------|----------|------------|
+| 🟠 | **Logos subidos en el panel salían con fondo blanco:** toda imagen se convertía a JPG, que no tiene transparencia. | Los logos (del sitio y de proveedores) se guardan en **PNG**. |
+| 🟡 | Logo del inicio chico y dentro de una placa blanca. | Sin fondo, en blanco, 100 px por defecto y **tamaño/estilo ajustables** en *Apariencia → Logo del inicio* (vista previa en vivo). Se aplica desde el primer instante. |
+| 🟡 | Con un logo grande, el encabezado fijo ocupaba mucha pantalla en el celular. | El encabezado se **compacta al bajar** y vuelve a su tamaño arriba. En teléfono acostado, el logo se limita. |
+| 🟡 | iPhone: el buscador del panel tenía letra de 15 px → el iPhone hacía zoom al tocarlo. | Todos los campos de captura tienen ≥ 16 px (revisado en catálogo y panel). |
+| 🟢 | En celulares, `100vh` no considera las barras del navegador (la pantalla “brincaba”). | Se usa `100dvh` (con respaldo). |
+| 🟢 | Zona segura del iPhone (notch) en la barra inferior y el contenido. | Márgenes con `safe-area`. |
+
+**Compatibilidad revisada** (sin desplazamiento lateral, sin elementos cortados, sin campos que provoquen zoom):
+celular 320 px (iPhone SE), 375 px, tableta 768 px, tableta/laptop 1024 px y computadora 1440 px; catálogo, pantalla de acceso y panel.
+Celular y tableta vertical usan el formato móvil; desde 960 px (iPad horizontal y computadoras) el formato de escritorio.
+El zoom manual sigue bloqueado (pellizco, doble toque, Ctrl + rueda).
+
+---
+
 ## 5. Cómo se probó
 - Sintaxis de todos los JS (y del módulo del panel) verificada con Node.
 - Navegador, teléfono (375×812) y computadora (1366×860): pantalla de acceso conectada a Firebase real, formulario de registro,

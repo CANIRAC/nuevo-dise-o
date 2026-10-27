@@ -100,8 +100,8 @@ function paintStatic(){
   wireNav();
   wireSearch();
   wireModals();
-  wireCatArrows();
   wireRefresh();
+  wireCompactHeader();
 }
 
 // Copia local del catálogo (la guarda store.js cada vez que descarga de la nube).
@@ -515,6 +515,15 @@ async function refreshData(){
   catch(e){ console.warn("[CANIRAC] refresh:", e); }
   finally{ refreshing = false; }
 }
+// Encabezado compacto al bajar (con margen para que no "parpadee" en el límite)
+function wireCompactHeader(){
+  let on = false;
+  window.addEventListener("scroll", ()=>{
+    const y = window.scrollY;
+    if(!on && y > 90){ on = true; document.body.classList.add("scrolled"); }
+    else if(on && y < 12){ on = false; document.body.classList.remove("scrolled"); }
+  }, { passive:true });
+}
 function isStandalone(){ return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true; }
 function wireRefresh(){
   // Botón "Actualizar" del menú: recarga completa (arregla cualquier pantalla trabada).
@@ -583,47 +592,40 @@ function updateSessionUI(u){
   document.getElementById("sessLogout").onclick = doLogout;
 }
 
-// ---------- Apariencia (color, logo y portada configurables desde el admin) ----------
-// Antes, el color del admin también reemplazaba el fondo del encabezado: la app
-// arrancaba azul y cambiaba a naranja al terminar de cargar. Ahora el color solo
-// cambia el ACENTO, y se guarda para aplicarse desde el primer instante (ver <head>).
-const THEME_KEY = "canirac_theme_v1";
-const HERO_DEF = {
-  titulo: "Encuentra proveedores para",
-  resaltado: "tu restaurante",
-  subtitulo: "Conecta con los mejores proveedores de la región, insumos de calidad y soluciones para hacer crecer tu restaurante."
-};
+// ---------- Apariencia (color y logo configurables desde el admin) ----------
+// Se guarda en el teléfono y el <head> lo aplica ANTES de pintar la página:
+// así la app ya no aparece azul (u otro color) mientras termina de cargar.
+const THEME_KEY = "canirac_theme_v2";
+const ORANGE = "#EE7623"; // naranja CANIRAC (color por defecto)
 function applyTheme(site){
   const t = (site && site.tema) || {};
-  const primary = /^#[0-9a-f]{6}$/i.test(t.primary||"") ? t.primary : "";
+  const primary = /^#[0-9a-f]{6}$/i.test(t.primary||"") ? t.primary : ORANGE;
   setPrimary(primary);
   const logo = safeUrl(t.logo);
   if(logo) setLogo(logo);
-  // Portada (foto y textos)
-  const pt = (site && site.portada) || {};
-  const img = safeUrl(pt.imagen);
-  document.documentElement.style.setProperty("--hero-img", img ? `url("${img.replace(/"/g,"%22")}")` : "none");
-  const h1 = document.getElementById("heroTitle"), sub = document.getElementById("heroSub");
-  const titulo = (pt.titulo||"").trim() || HERO_DEF.titulo;
-  const resaltado = (pt.resaltado||"").trim() || (pt.titulo ? "" : HERO_DEF.resaltado);
-  if(h1) h1.innerHTML = escapeHtml(titulo) + (resaltado ? ` <em>${escapeHtml(resaltado)}</em>` : "");
-  if(sub) sub.textContent = (pt.subtitulo||"").trim() || HERO_DEF.subtitulo;
+  // Logo del encabezado: tamaño y estilo (blanco sin fondo / colores originales)
+  const logoH = Math.max(40, Math.min(220, parseInt(t.logoH,10) || 100));
+  const logoStyle = t.logoStyle === "original" ? "original" : "blanco";
+  const r = document.documentElement.style;
+  r.setProperty("--logo-h", logoH + "px");
+  r.setProperty("--logo-filter", logoStyle === "original" ? "none" : "brightness(0) invert(1)");
   try{
     localStorage.setItem(THEME_KEY, JSON.stringify({
-      primary, primaryD: primary ? shade(primary,-26) : "", primaryL: primary ? shade(primary,36) : "",
-      portada: img && img.length < 200000 ? img : "", logo: logo && logo.length < 200000 ? logo : ""
+      primary, primaryD: shade(primary,-30), primaryL: shade(primary,30), grad: gradOf(primary),
+      logoH, logoStyle
     }));
   }catch(e){}
 }
+function gradOf(c){ return `linear-gradient(160deg, ${shade(c,16)} 0%, ${shade(c,-20)} 100%)`; }
 function setPrimary(c){
   const r = document.documentElement.style;
-  if(!c){ ["--primary","--primary-d","--primary-l"].forEach(k=>r.removeProperty(k)); return; } // naranja CANIRAC
   r.setProperty("--primary", c);
-  r.setProperty("--primary-d", shade(c,-26));
-  r.setProperty("--primary-l", shade(c,36));
+  r.setProperty("--primary-d", shade(c,-30));
+  r.setProperty("--primary-l", shade(c,30));
+  r.setProperty("--grad", gradOf(c));
+  const meta = document.querySelector('meta[name="theme-color"]'); if(meta) meta.content = c;
 }
 function setLogo(url){
-  document.querySelectorAll(".brand").forEach(b=>b.classList.add("custom-logo"));
   document.querySelectorAll(".brand-img").forEach(img=>{ img.src = url; img.style.display="block"; const f=img.nextElementSibling; if(f) f.style.display="none"; });
 }
 
@@ -758,7 +760,7 @@ function closeDrawer(){ closeOverlay("drawer"); }
 // ============================================================
 //  NAVEGACIÓN ENTRE VISTAS
 // ============================================================
-const views = ["inicio","categorias","lista","nosotros","contacto"];
+const views = ["inicio","categorias","lista","contacto"];
 let curNav = "inicio";
 function showView(v, keepScroll){
   views.forEach(x=>document.getElementById("view-"+x).classList.toggle("hidden", x!==v));
@@ -780,7 +782,6 @@ function render(nav, { keepScroll=false } = {}){
   switch(nav){
     case "categorias": showView("categorias", keepScroll); setActive("categorias"); break;
     case "contacto": showView("contacto", keepScroll); setActive("contacto"); break;
-    case "nosotros": showView("nosotros", keepScroll); setActive("nosotros"); break;
     case "todos": openList("Todos los proveedores", "", PROV, "", keepScroll); setActive("todos"); break;
     case "favoritos": openList("Favoritos", "Tus proveedores guardados", PROV.filter(p=>isFav(p.id)), "Aún no tienes favoritos. Toca el ♥ de un proveedor para guardarlo aquí.", keepScroll); setActive("favoritos"); break;
     case "destacados": openList("Proveedores destacados", "", PROV.filter(p=>p.destacado), "", keepScroll); setActive("destacados"); break;
@@ -832,26 +833,21 @@ function catProviders(cat){
   if (Array.isArray(cat.ids)) { const set = new Set(cat.ids.map(String)); return PROV.filter(p=>set.has(String(p.id))); }
   return PROV.filter(p=>p.categoria===cat.nombre);
 }
-// Color de la categoría + su tinte claro (fondo cuando aún no hay foto)
-function catTone(color){
-  // El azul era el color por defecto del diseño anterior: se cambia por el teal CANIRAC.
-  const c = /^#1877e6$/i.test(String(color||"").trim()) ? "#00758D" : safeColor(color, "#00758D");
-  const h = c.length===4 ? c.replace(/^#(.)(.)(.)$/,"#$1$1$2$2$3$3") : c.slice(0,7);
-  const n = parseInt(h.slice(1),16);
-  return `--c:${h};--tint:rgba(${(n>>16)&255},${(n>>8)&255},${n&255},.13)`;
-}
+// El azul era el color por defecto anterior: se muestra con el teal CANIRAC.
+function brandColor(c){ return /^#1877e6$/i.test(String(c||"").trim()) ? "#00758D" : safeColor(c, "#00758D"); }
 function catByName(name){ return getAllCats().find(c=>c.nombre===name) || CATEGORIAS.find(c=>c.nombre===name) || {}; }
-function catCardHTML(cat, idx, showCount){
-  const icon = CATEGORY_ICONS[cat.nombre] || CATEGORY_ICONS["Otros"];
+function catVisual(cat){
+  const icon = cat.emoji ? `<span class="cat-emoji">${escapeHtml(cat.emoji)}</span>` : (CATEGORY_ICONS[cat.nombre] || CATEGORY_ICONS["Otros"]);
   const img = safeUrl(cat.imagen);
-  // El ícono queda debajo de la foto: si la foto no carga, se ve el ícono (no un hueco blanco).
-  const ph = `<span class="cat-fb">${cat.emoji ? `<span class="cat-emoji">${escapeHtml(cat.emoji)}</span>` : icon}</span>` +
-    (img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.remove()">` : "");
+  // Si la foto no carga, se quita y queda el ícono (no un hueco en blanco)
+  return img ? `<img class="cat-img" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.replaceWith(document.createRange().createContextualFragment(this.dataset.fb||''))" data-fb="${escapeHtml(icon)}">` : icon;
+}
+function catCardHTML(cat, idx, showCount){
   const n = showCount ? catProviders(cat).length : 0;
-  return `<button class="cat" data-ci="${idx}" style="${catTone(cat.color)}">
-    <span class="cat-ph">${ph}</span>
-    <span class="cat-lb"><span class="cat-ic">${icon}</span><span>${escapeHtml(cat.nombre)}</span></span>
-    ${showCount?`<span class="cat-cnt">${plural(n,"proveedor")}</span>`:""}
+  return `<button class="cat" data-ci="${idx}">
+    <span class="tile ${cat.imagen?'has-img':''}" style="color:${brandColor(cat.color)}">${catVisual(cat)}</span>
+    <span class="lbl">${escapeHtml(cat.nombre)}</span>
+    ${showCount?`<span class="cnt">${plural(n,"proveedor")}</span>`:""}
   </button>`;
 }
 function renderCategorias(){
@@ -861,22 +857,6 @@ function renderCategorias(){
   home.innerHTML = cats.map((c,i)=>catCardHTML(c,i,false)).join("");
   all.innerHTML = cats.map((c,i)=>catCardHTML(c,i,true)).join("");
   [home,all].forEach(g=>g.querySelectorAll(".cat").forEach(b=>b.onclick=()=>go("cat:"+b.dataset.ci)));
-  updateCatArrows();
-}
-// Flechas para recorrer las categorías (computadora)
-function updateCatArrows(){
-  const row = document.getElementById("catGridHome"), p = document.getElementById("catPrev"), n = document.getElementById("catNext");
-  if(!row || !p || !n) return;
-  p.disabled = row.scrollLeft < 8;
-  n.disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 8;
-}
-function wireCatArrows(){
-  const row = document.getElementById("catGridHome");
-  const move = dir => row.scrollBy({ left: dir * row.clientWidth * .75, behavior:"smooth" });
-  document.getElementById("catPrev").addEventListener("click", ()=>move(-1));
-  document.getElementById("catNext").addEventListener("click", ()=>move(1));
-  row.addEventListener("scroll", updateCatArrows, { passive:true });
-  window.addEventListener("resize", updateCatArrows);
 }
 // Slider de logos (marquee) en el inicio
 function renderMarquee(images){
@@ -892,32 +872,31 @@ function renderMarquee(images){
 // ============================================================
 //  DESTACADOS
 // ============================================================
-// Foto de portada del proveedor: la que subiste en el admin → su primera foto →
-// la foto de su categoría. Si no hay ninguna, se muestra el ícono de la categoría.
-function provCover(p){
-  return safeUrl(p.portada) || safeUrl(p.fotos && p.fotos[0]) || safeUrl(catByName(p.categoria).imagen) || "";
-}
-// Tarjeta de proveedor (destacados y listas): foto a la izquierda, datos a la derecha.
+// Foto de portada del proveedor (desde el admin) → su primera foto
+function provCover(p){ return safeUrl(p.portada) || safeUrl(p.fotos && p.fotos[0]) || ""; }
 function destCardHTML(p){
-  const cat = catByName(p.categoria);
-  const cover = provCover(p), logo = safeUrl(p.logo);
-  const isPromo = /%/.test(p.badge||"");
-  const badge = p.badge ? `<span class="dc-badge ${isPromo?"promo":""}">${isPromo?ICONS.tag:ICONS.starFilled}${escapeHtml(p.badge)}</span>` : "";
-  const desc = (p.descripcion || p.giro || "").trim();
-  return `<article class="dest-card" data-id="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.nombre)}">
-    <div class="dc-photo" style="${catTone(cat.color || p.color)}">
-      <span class="dc-fb">${catIcon(p.categoria)}</span>
-      ${cover ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+  const color = brandColor(p.color), logo = safeUrl(p.logo), portada = safeUrl(p.portada), foto = safeUrl(p.fotos && p.fotos[0]);
+  const fallback = `<div class="logo-fallback" style="opacity:.92">${catIcon(p.categoria).replace('<svg','<svg width="52" height="52"')}</div>`;
+  const media = portada
+    ? `<img src="${escapeHtml(portada)}" alt="${escapeHtml(p.nombre)}" loading="lazy">`
+    : logo
+      ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(p.nombre)}" loading="lazy" style="object-fit:contain;padding:16px;background:#fff">`
+      : foto
+        ? `<img src="${escapeHtml(foto)}" alt="${escapeHtml(p.nombre)}" loading="lazy">`
+        : fallback;
+  const badge = p.badge
+    ? `<span class="dest-badge ${/%/.test(p.badge)?"":"member"}">${/%/.test(p.badge)?"":ICONS.starFilled}${escapeHtml(p.badge)}</span>`
+    : "";
+  return `<article class="dest-card" data-id="${escapeHtml(p.id)}">
+    <div class="dest-media" style="background:${color}">
+      ${media}
+      ${badge}
       <button class="fav-btn ${isFav(p.id)?"on":""}" data-fav="${escapeHtml(p.id)}" aria-label="Favorito">${isFav(p.id)?ICONS.heartFilled:ICONS.heart}</button>
     </div>
-    <div class="dc-body">
-      ${logo ? `<div class="dc-logo"><img src="${escapeHtml(logo)}" alt="${escapeHtml(p.nombre)}" loading="lazy"></div>` : `<div class="dc-name">${escapeHtml(p.nombre)}</div>`}
-      <div class="dc-chips"><span class="dc-chip">${escapeHtml(p.categoria || "Proveedor")}</span>${badge}</div>
-      ${desc ? `<p class="dc-desc">${escapeHtml(desc)}</p>` : ""}
-      <div class="dc-foot">
-        ${p.ubicacion ? `<span class="dc-loc">${ICONS.mapPin}${escapeHtml(p.ubicacion)}</span>` : ""}
-        <span class="dc-go">${ICONS.arrowR}</span>
-      </div>
+    <div class="dest-body">
+      <div class="nm">${escapeHtml(p.nombre)}</div>
+      <div class="gr">${catIcon(p.categoria).replace('<svg','<svg style="color:'+color+'"')}<span>${escapeHtml((p.giro||p.categoria||"").split(",")[0].slice(0,26))}</span></div>
+      <button class="btn-see" data-id="${escapeHtml(p.id)}">Ver proveedor</button>
     </div>
   </article>`;
 }
@@ -934,7 +913,18 @@ function renderDestacados(){
 // ============================================================
 function cardsHTML(list, emptyMsg){
   if(!list.length) return `<div class="empty">${ICONS.search}<div>${escapeHtml(emptyMsg || "No se encontraron proveedores.")}</div></div>`;
-  return list.slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es")).map(destCardHTML).join("");
+  return list.slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es")).map(p=>{
+    const logo = safeUrl(p.logo), foto = provCover(p);
+    return `
+      <article class="p-card" data-id="${escapeHtml(p.id)}">
+        <div class="p-thumb" style="background:${logo?'#fff':brandColor(p.color)}">${logo?`<img src="${escapeHtml(logo)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain;border-radius:13px;padding:5px">`:(foto?`<img src="${escapeHtml(foto)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:escapeHtml(initials(p.nombre)))}</div>
+        <div class="p-info">
+          <div class="nm">${escapeHtml(p.nombre)}</div>
+          <div class="gr">${escapeHtml(p.giro||"")}</div>
+          <span class="p-chip">${escapeHtml(p.categoria)}</span>
+        </div>
+        <button class="fav-btn ${isFav(p.id)?"on":""}" data-fav="${escapeHtml(p.id)}" aria-label="Favorito">${isFav(p.id)?ICONS.heartFilled:ICONS.heart}</button>
+      </article>`;}).join("");
 }
 function openList(title, sub, list, emptyMsg, keepScroll){
   document.getElementById("listTitle").textContent = title;
@@ -955,6 +945,7 @@ function wireCardEvents(root){
   }));
   root.querySelectorAll("[data-id]").forEach(el=>el.addEventListener("click", e=>{
     if(e.target.closest("[data-fav]")) return;
+    if(el.classList.contains("btn-see")) e.stopPropagation(); // evita abrir la ficha dos veces
     openModal(el.dataset.id);
   }));
 }
@@ -984,7 +975,8 @@ function wireSearch(){
   // Guarda la búsqueda en el historial cuando el usuario termina de escribir
   inp.addEventListener("change", ()=>{ addRecent(inp.value); });
   inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ addRecent(inp.value); inp.blur(); showResults(); } });
-  document.getElementById("searchForm").addEventListener("submit", e=>{ e.preventDefault(); addRecent(inp.value); inp.blur(); showResults(); });
+  const sf = document.getElementById("searchForm");
+  if(sf) sf.addEventListener("submit", e=>{ e.preventDefault(); addRecent(inp.value); inp.blur(); showResults(); });
   clr.addEventListener("click", ()=>{ resetHomeSearch(); if(hs) hs.value=""; inp.focus(); });
   // Buscador del encabezado (computadora): escribe en el buscador principal
   if(hs){
@@ -1024,10 +1016,13 @@ function wireSearch(){
 function openModal(id){
   const p = PROV.find(x=>String(x.id)===String(id));
   if(!p) return;
-  // Encabezado con la foto de portada del proveedor (si tiene)
-  const head = document.getElementById("pmHead"), cover = provCover(p);
-  head.classList.toggle("has-cover", !!cover);
-  head.style.backgroundImage = cover ? `url("${cover.replace(/"/g,"%22")}")` : "";
+  // Encabezado de la ficha: su foto de portada (si tiene) o el color del proveedor
+  const head = document.getElementById("pmHead"), color = brandColor(p.color), cover = safeUrl(p.portada);
+  head.style.background = cover
+    ? `linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.65)), url("${cover.replace(/"/g,"%22")}") center/cover`
+    : `linear-gradient(150deg, ${color}, ${shade(color,-25)})`;
+  head.style.minHeight = cover ? "180px" : "";
+  head.style.justifyContent = cover ? "flex-end" : "";
   document.getElementById("pmCat").textContent = p.categoria || "Proveedor";
   document.getElementById("pmName").textContent = p.nombre;
 
@@ -1169,7 +1164,7 @@ function renderDrawerInfo(){
 function renderFooter(){
   document.getElementById("appFooter").innerHTML = `
     <div class="af-in">
-      <div class="af-brand">${brandHTML({ onDark:true })}<p>Trabajamos para fortalecer la industria restaurantera y apoyar el crecimiento de tu negocio.</p></div>
+      <div class="af-brand">${brandHTML({ vertical:false })}<p>Trabajamos para fortalecer la industria restaurantera y apoyar el crecimiento de tu negocio.</p></div>
       <div class="af-links">
         <a href="${CAMARA_WA}" target="_blank" rel="noopener">${ICONS.wa} ${CONTACTO.telefono}</a>
         <a href="${CONTACTO.instagram}" target="_blank" rel="noopener">${ICONS.ig} Instagram</a>

@@ -137,13 +137,14 @@ Authentication → Settings → **Authorized domains → Add domain**: agrega
 
 ---
 
-## Diseño y fotos (paleta CANIRAC)
-El sitio usa la paleta oficial: teal **#00758D**, naranja **#EE7623**, rojo **#C23B33** y gris **#D0CFCD**.
-Todas las fotos se cambian desde el panel:
-- **Portada del inicio** (foto grande y textos): *Apariencia → Portada del inicio*.
+## Diseño, logo y fotos
+El color principal por defecto es el naranja CANIRAC **#EE7623** (se cambia en *Apariencia → Color principal*).
+- **Logo del inicio** (el de arriba del carrusel): *Apariencia → Logo del inicio*. Ajusta el **tamaño**
+  (40–220 px, con vista previa) y el **estilo**: blanco sin fondo (recomendado) o colores originales sin fondo.
+  Al bajar en el celular, el encabezado se compacta solo para dejar espacio.
+- Si subes un logo propio, se guarda en **PNG** para conservar la transparencia (sin fondo).
 - **Foto de cada categoría**: *Categorías* → editar → “Foto de la categoría”.
 - **Foto de portada y ubicación de cada proveedor**: *Proveedores* → editar.
-  Si un proveedor no tiene portada, se usa su primera foto o la de su categoría.
 
 Si la app instalada se ve rara o desactualizada: menú ☰ → **Actualizar** (o jala la pantalla hacia abajo).
 En el panel: botón **↻ Actualizar** arriba.

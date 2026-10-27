@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Administración — CANIRAC Laguna</title>
-<meta name="theme-color" content="#0A3640">
+<meta name="theme-color" content="#EE7623">
 <meta name="robots" content="noindex, nofollow">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="logoapp.png" type="image/png">
@@ -206,29 +206,28 @@
 
     <!-- APARIENCIA -->
     <section class="apanel" id="p-tema">
-      <div class="hint">Personaliza la <b>foto de portada</b> y los textos del inicio, el <b>color de acento</b> y el <b>logo</b>. Los cambios aparecen en el catálogo la próxima vez que se abra (o con el botón <b>Actualizar</b> del menú).</div>
+      <div class="hint">Personaliza el <b>logo del inicio</b> (tamaño y estilo), el <b>color principal</b> y el <b>logo</b>. Los cambios aparecen en el catálogo la próxima vez que se abra (o con el botón <b>Actualizar</b> del menú).</div>
       <div class="panel-card">
-        <h3>Portada del inicio</h3>
+        <h3>Logo del inicio (arriba del carrusel)</h3>
+        <div class="logo-preview" id="lg-preview"><span class="brand on-dark"><span class="brand-chip"><img class="brand-img" id="lg-img" src="logo.png" alt="Vista previa del logo"></span></span></div>
         <div class="field">
-          <label>Foto de portada (se recomienda horizontal, de al menos 1600 px de ancho)</label>
-          <div class="img-pick">
-            <div class="img-prev wide" id="pt-prev"></div>
-            <label class="btn-soft" style="margin:0">Subir foto…<input type="file" id="pt-file" accept="image/*" hidden></label>
-            <button class="btn-soft" id="pt-clear" type="button">Quitar</button>
-          </div>
-          <input id="pt-url" placeholder="…o pega la URL de la foto">
+          <label>Tamaño del logo</label>
+          <div class="range-row"><input type="range" id="lg-size" min="40" max="220" step="2" value="100"><b id="lg-size-v">100 px</b></div>
+          <small class="help">En computadora se muestra un poco más chico para que el menú quepa en una sola línea.</small>
         </div>
-        <div class="row-2">
-          <div class="field"><label>Título</label><input id="pt-titulo" placeholder="Encuentra proveedores para"></div>
-          <div class="field"><label>Texto resaltado (en naranja)</label><input id="pt-resaltado" placeholder="tu restaurante"></div>
+        <div class="field">
+          <label>Estilo del logo</label>
+          <select id="lg-style">
+            <option value="blanco">Blanco, sin fondo (recomendado)</option>
+            <option value="original">Colores originales, sin fondo</option>
+          </select>
         </div>
-        <div class="field"><label>Texto debajo del título</label><textarea id="pt-subtitulo" placeholder="Conecta con los mejores proveedores de la región…"></textarea></div>
-        <button class="btn-primary" id="pt-save" style="max-width:240px">Guardar portada</button>
+        <button class="btn-primary" id="lg-save" style="max-width:240px">Guardar logo</button>
       </div>
       <div class="panel-card">
         <h3>Color y logo</h3>
         <div class="field">
-          <label>Color de acento (botones y detalles). Vacío = naranja CANIRAC</label>
+          <label>Color principal (encabezado y botones). Vacío = naranja CANIRAC</label>
           <div style="display:flex;gap:.7rem;align-items:center">
             <input type="color" id="th-color" style="width:56px;height:46px;padding:2px;border-radius:10px;border:1.5px solid var(--line);background:#fff">
             <input id="th-color-hex" style="max-width:140px" placeholder="#EE7623 (naranja CANIRAC)">
@@ -570,10 +569,12 @@ function downloadCsv(rows, name){
 // Sube una imagen. SIEMPRE la convierte a JPG primero (así se ve en cualquier
 // dispositivo; las fotos de iPhone en HEIC no se muestran tal cual). Devuelve la
 // URL (o una copia local si Storage falla), o null si la imagen no se pudo leer.
-async function uploadImageFile(file){
+// opts.png = true → se guarda en PNG para conservar la transparencia (logos sin fondo).
+async function uploadImageFile(file, opts={}){
   let conv;
+  const type = opts.png ? "image/png" : "image/jpeg";
   try{
-    conv = await compressToBlob(file, 1600, 0.82);
+    conv = await compressToBlob(file, opts.png ? 1000 : 1600, 0.82, type);
   }catch(e){
     console.warn("No se pudo leer la imagen:", e);
     toast("No se pudo leer esa foto. Si es de iPhone (HEIC), súbela DESDE el iPhone o pásala a JPG.","err",6500);
@@ -583,8 +584,8 @@ async function uploadImageFile(file){
     toast("Subiendo foto…");
     try{
       const base = ((file.name||"foto").replace(/\.[^.]+$/,"")) || "foto";
-      const jpg = new File([conv.blob], base+".jpg", { type:"image/jpeg" });
-      const url = await store.uploadFile(jpg, "fotos"); // subida directa de un JPG pequeño
+      const jpg = new File([conv.blob], base+(opts.png?".png":".jpg"), { type });
+      const url = await store.uploadFile(jpg, "fotos"); // subida directa de una imagen pequeña
       toast("Foto lista ✓");
       return url;
     }catch(e){
@@ -729,7 +730,7 @@ function renderEdLogo(){
     ? `<img src="${escapeHtml(src)}" style="width:100%;height:100%;object-fit:contain">`
     : `<span style="color:var(--muted);font-size:.62rem">Sin logo</span>`;
 }
-document.getElementById("edLogoFile").onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const v=await uploadImageFile(f); if(v){ logoData=v; F("logo").value=""; renderEdLogo(); } e.target.value=""; };
+document.getElementById("edLogoFile").onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const v=await uploadImageFile(f, { png:true }); if(v){ logoData=v; F("logo").value=""; renderEdLogo(); } e.target.value=""; };
 document.getElementById("edLogoClear").onclick=()=>{ logoData=""; F("logo").value=""; renderEdLogo(); };
 document.getElementById("f-logo").oninput=renderEdLogo;
 // Foto de portada del proveedor
@@ -1041,59 +1042,64 @@ document.getElementById("slFile").onchange = async e=>{
   e.target.value="";
 };
 
-// ---------- Portada del inicio (foto + textos) ----------
-let ptImg = "";
-function renderPortada(){
-  const pt = SITE.portada || {};
-  ptImg = pt.imagen || "";
-  document.getElementById("pt-url").value = (ptImg && !ptImg.startsWith("data:")) ? ptImg : "";
-  document.getElementById("pt-titulo").value = pt.titulo || "";
-  document.getElementById("pt-resaltado").value = pt.resaltado || "";
-  document.getElementById("pt-subtitulo").value = pt.subtitulo || "";
-  renderPtPrev();
+// ---------- Logo del inicio: tamaño y estilo (con vista previa en vivo) ----------
+function paintLogoPreview(){
+  const size = +document.getElementById("lg-size").value;
+  const style = document.getElementById("lg-style").value;
+  const prev = document.getElementById("lg-preview"), img = document.getElementById("lg-img");
+  document.getElementById("lg-size-v").textContent = size + " px";
+  img.style.height = size + "px";
+  img.style.filter = style === "original" ? "none" : "brightness(0) invert(1)";
+  img.src = safeUrl(SITE.tema.logo) || "logo.png";
+  // Fondo de la vista previa = color principal, como en el catálogo
+  const hex = document.getElementById("th-color-hex").value.trim();
+  const c = /^#[0-9a-f]{6}$/i.test(hex) ? hex : "#EE7623";
+  prev.style.background = `linear-gradient(160deg, ${shadeHex(c,16)} 0%, ${shadeHex(c,-20)} 100%)`;
 }
-function renderPtPrev(){
-  const src = ptImg || document.getElementById("pt-url").value.trim();
-  document.getElementById("pt-prev").innerHTML = src ? `<img src="${escapeHtml(src)}" alt="">` : "Sin foto";
+function shadeHex(hex, amt){
+  const h=hex.replace("#",""); let r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  r=Math.max(0,Math.min(255,r+amt));g=Math.max(0,Math.min(255,g+amt));b=Math.max(0,Math.min(255,b+amt));
+  return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
-document.getElementById("pt-file").onchange = async e=>{ const f=e.target.files[0]; if(!f)return; const v=await uploadImageFile(f); if(v){ ptImg=v; document.getElementById("pt-url").value=""; renderPtPrev(); toast("Foto lista (recuerda Guardar portada)"); } e.target.value=""; };
-document.getElementById("pt-clear").onclick = ()=>{ ptImg=""; document.getElementById("pt-url").value=""; renderPtPrev(); };
-document.getElementById("pt-url").oninput = ()=>{ ptImg=""; renderPtPrev(); };
-document.getElementById("pt-save").onclick = async ()=>{
-  SITE.portada = {
-    imagen: ptImg || document.getElementById("pt-url").value.trim(),
-    titulo: document.getElementById("pt-titulo").value.trim(),
-    resaltado: document.getElementById("pt-resaltado").value.trim(),
-    subtitulo: document.getElementById("pt-subtitulo").value.trim()
-  };
-  await saveSiteSafe("Portada guardada");
+function renderLogoCfg(){
+  const h = Math.max(40, Math.min(220, parseInt(SITE.tema.logoH,10) || 100));
+  document.getElementById("lg-size").value = h;
+  document.getElementById("lg-style").value = SITE.tema.logoStyle === "original" ? "original" : "blanco";
+  paintLogoPreview();
+}
+document.getElementById("lg-size").oninput = paintLogoPreview;
+document.getElementById("lg-style").onchange = paintLogoPreview;
+document.getElementById("lg-save").onclick = async ()=>{
+  SITE.tema.logoH = +document.getElementById("lg-size").value;
+  SITE.tema.logoStyle = document.getElementById("lg-style").value;
+  await saveSiteSafe("Logo guardado");
 };
 
 // ---------- Apariencia (color + logo) ----------
 function renderTema(){
-  renderPortada();
   const c = SITE.tema.primary || "#EE7623";
   document.getElementById("th-color").value = /^#[0-9a-f]{6}$/i.test(c) ? c : "#EE7623";
   document.getElementById("th-color-hex").value = SITE.tema.primary || "";
   renderLogoPrev(SITE.tema.logo || "");
   const url = SITE.tema.logo || "";
   document.getElementById("th-logo-url").value = (url && !url.startsWith("data:")) ? url : "";
+  renderLogoCfg();
 }
 function renderLogoPrev(url){
   document.getElementById("th-logo-prev").innerHTML = url
     ? `<img src="${escapeHtml(url)}" style="width:100%;height:100%;object-fit:contain">`
     : `<span style="color:var(--muted);font-size:.68rem;text-align:center">Logo<br>actual</span>`;
 }
-document.getElementById("th-color").oninput = e=>{ document.getElementById("th-color-hex").value = e.target.value.toUpperCase(); };
-document.getElementById("th-color-hex").oninput = e=>{ const v=e.target.value.trim(); if(/^#[0-9a-f]{6}$/i.test(v)) document.getElementById("th-color").value=v; };
-document.getElementById("th-reset").onclick = ()=>{ document.getElementById("th-color-hex").value=""; document.getElementById("th-color").value="#EE7623"; };
+document.getElementById("th-color").oninput = e=>{ document.getElementById("th-color-hex").value = e.target.value.toUpperCase(); paintLogoPreview(); };
+document.getElementById("th-color-hex").oninput = e=>{ const v=e.target.value.trim(); if(/^#[0-9a-f]{6}$/i.test(v)) document.getElementById("th-color").value=v; paintLogoPreview(); };
+document.getElementById("th-reset").onclick = ()=>{ document.getElementById("th-color-hex").value=""; document.getElementById("th-color").value="#EE7623"; paintLogoPreview(); };
 document.getElementById("th-logo-file").onchange = async e=>{
   const f=e.target.files[0]; if(!f)return;
-  const v=await uploadImageFile(f);
-  if(v){ SITE.tema.logo=v; renderLogoPrev(SITE.tema.logo); document.getElementById("th-logo-url").value=""; toast("Logo cargado"); }
+  const v=await uploadImageFile(f, { png:true }); // PNG: conserva la transparencia (sin fondo)
+  if(v){ SITE.tema.logo=v; renderLogoPrev(SITE.tema.logo); document.getElementById("th-logo-url").value=""; paintLogoPreview(); toast("Logo cargado (recuerda Guardar apariencia)"); }
   e.target.value="";
 };
-document.getElementById("th-logo-clear").onclick = ()=>{ SITE.tema.logo=""; renderLogoPrev(""); document.getElementById("th-logo-url").value=""; };
+document.getElementById("th-logo-clear").onclick = ()=>{ SITE.tema.logo=""; renderLogoPrev(""); document.getElementById("th-logo-url").value=""; paintLogoPreview(); };
 document.getElementById("th-save").onclick = async ()=>{
   const hex=document.getElementById("th-color-hex").value.trim();
   SITE.tema.primary = /^#[0-9a-f]{6}$/i.test(hex) ? hex : "";
@@ -1107,7 +1113,7 @@ function readDataURL(file){ return new Promise((res,rej)=>{ const r=new FileRead
 function compress(file,maxW=1400,q=0.82,type="image/jpeg"){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const s=Math.min(1,maxW/img.width);const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);res(c.toDataURL(type,q));};img.onerror=rej;img.src=r.result;};r.onerror=rej;r.readAsDataURL(file);});}
 // Convierte cualquier imagen a JPG y devuelve { blob, dataUrl }. Rechaza si el
 // navegador no puede leer/decodificar la imagen (p. ej. HEIC en computadora).
-function compressToBlob(file,maxW=1600,q=0.82){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{try{const s=Math.min(1,maxW/(img.width||maxW));const c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));c.getContext("2d").drawImage(img,0,0,c.width,c.height);const dataUrl=c.toDataURL("image/jpeg",q);if(c.toBlob){c.toBlob(b=>{res({blob:b||dataURLtoBlob(dataUrl),dataUrl});},"image/jpeg",q);}else{res({blob:dataURLtoBlob(dataUrl),dataUrl});}}catch(err){rej(err);}};img.onerror=()=>rej(new Error("decode"));img.src=r.result;};r.onerror=()=>rej(new Error("read"));r.readAsDataURL(file);});}
+function compressToBlob(file,maxW=1600,q=0.82,type="image/jpeg"){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{try{const s=Math.min(1,maxW/(img.width||maxW));const c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));c.getContext("2d").drawImage(img,0,0,c.width,c.height);const dataUrl=c.toDataURL(type,q);if(c.toBlob){c.toBlob(b=>{res({blob:b||dataURLtoBlob(dataUrl),dataUrl});},type,q);}else{res({blob:dataURLtoBlob(dataUrl),dataUrl});}}catch(err){rej(err);}};img.onerror=()=>rej(new Error("decode"));img.src=r.result;};r.onerror=()=>rej(new Error("read"));r.readAsDataURL(file);});}
 function dataURLtoBlob(d){const a=d.split(",");const m=(a[0].match(/:(.*?);/)||[])[1]||"image/jpeg";const bin=atob(a[1]);let n=bin.length;const u=new Uint8Array(n);while(n--)u[n]=bin.charCodeAt(n);return new Blob([u],{type:m});}
 </script>
 </body>
